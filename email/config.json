@@ -5,3 +5,18 @@
     "port": 993,
     "tls": true
 }
+
+{
+    "userMail" : "your_email",
+    "receiverMail": "receiver_emails", //seperated by comma
+    "subjectText":" ",
+    "contentText":" ",
+    "_attachments":" ",
+    "receiverCC":" ",
+    "receiverBCC":" ",
+    "userPassword":" ",
+    "clientId_input":" ",
+    "clientSecret_input":" ",
+    "refreshToken_input":" "
+
+}   
