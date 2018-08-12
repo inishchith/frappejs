@@ -1,6 +1,8 @@
 const frappe = require('frappejs');
+const ImapClient = require('emailjs-imap-client').default
+const parse = require('emailjs-mime-parser').default
 const simpleParser = require('mailparser').simpleParser;
-const Imap = require('imap');
+
 
 module.exports = {
   sync: async ({
