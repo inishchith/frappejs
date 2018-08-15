@@ -1,15 +1,12 @@
 const frappe = require('frappejs');
-const ImapClient = require('emailjs-imap-client').default
-const parse = require('emailjs-mime-parser').default
+const ImapClient = require('emailjs-imap-client').default;
 const simpleParser = require('mailparser').simpleParser;
-
 
 module.exports = {
   sync: async ({
     email,
     syncOption
   }) => {
-    // could be replaced with getDoc if account name is set same as email
     let account = await frappe.db.getAll({
       doctype: 'EmailAccount',
       fields: ['email', 'password', 'imapHost', 'imapPort', 'initialDate'],
@@ -18,73 +15,47 @@ module.exports = {
       }
     });
     account = account[0];
-    var config = {
-      "user": account.email,
-      "password": account.password,
-      "host": account.imapHost,
-      "port": account.imapPort,
-      "tls": true,
-    }
-    var imap = new Imap(config);
+    const client = new ImapClient(account.imapHost, account.imapPort, {
+      useSecureTransport:true,
+      logLevel:'error',
+      auth: {
+        user: account.email,
+        pass: account.password
+      }
+    });
+    client.onerror = function (error) {console.log(error)};
 
-    function openInbox(cb) {
-      imap.openBox('INBOX', true, cb);
-    }
-
-    imap.once('ready', function () {
-
-      openInbox(function (err, box) {
-
-        if (err) throw err;
-        imap.search([syncOption, ['SINCE', account.initialDate]], function (err, results) {
-          if (err) throw err;
-          var fetch = imap.fetch(results, {
-            bodies: ''
-          });
-          fetch.on('message', function (msg, seqno) {
-            msg.on('body', function (stream, info) {
-
-              simpleParser(stream)
-                .then(async function (mail_object) {
-                  await frappe.insert({
-                    doctype: 'Email',
-                    fromEmailAddress: mail_object.from.value[0].address,
-                    toEmailAddress: mail_object.to.value[0].address,
-                    ccEmailAddress: mail_object.cc,
-                    bccEmailAddress: mail_object.bcc,
-                    date: mail_object.date,
-                    subject: mail_object.subject,
-                    bodyHtml: mail_object.html,
-                    bodyText: mail_object.text,
-                    sent: 0,
-                  });
-                })
-                .catch(function (err) {
-                  console.log('An error occurred:', err.message);
-                });
-            });
-          });
-
-          fetch.once('error', function (err) {
-            console.log('Fetch error: ' + err);
-          });
-
-          fetch.once('end', function () {
-            console.log('Done fetching all messages!');
-            imap.end();
+    client.connect().then(() => {
+      client.listMessages('INBOX', '10:*', ['uid', 'flags', 'envelope', 'body[]']).then((messages) => {
+        messages.forEach((message) => {
+          simpleParser(message['body[]']).then(async function (parsed){
+            // message.envelope.from[0].name to DisplayName Field
+            // ccEmailAddress ,bccEmailAddress UNAVAILABLE
+            await frappe.insert({
+              doctype: 'Email',
+              fromEmailAddress: message.envelope.from[0].address,
+              toEmailAddress: message.envelope.to[0].address,
+              //ccEmailAddress: message.envelope.cc[0].address,
+              //bccEmailAddress: message.envelope.bcc[0].address,
+              date: message.envelope.date,
+              subject: message.envelope.subject,
+              bodyHtml: parsed.html,
+              bodyText: parsed.text,
+              sent: 0,
+            })
+          }).catch(function (err) {
+            console.log('An error occurred:', err.message);
           });
         });
       });
     });
-
-    imap.once('error', function (err) {
-      console.log(err);
-    });
-
-    imap.once('end', function () {
-      console.log('Connection ended');
-    });
-
-    imap.connect();
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    async function demo() {
+      await sleep(5000);
+      client.close().then(() => { console.log("CLOSED CONNECTION") });
+    }
+    demo();  
   }
 }
