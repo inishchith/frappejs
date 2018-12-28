@@ -65,10 +65,6 @@ module.exports = class BaseDocument extends Observable {
 
                 let defaultValue = null;
 
-                if (field.fieldtype === 'Date') {
-                    defaultValue = (new Date()).toISOString().substr(0, 10);
-                }
-
                 if (field.fieldtype === 'Table') {
                     defaultValue = [];
                 }
